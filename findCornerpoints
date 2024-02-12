@@ -4,6 +4,22 @@ import cv2 as cv
 import glob
 import os
 
+# code adapted from: https://www.geeksforgeeks.org/displaying-the-coordinates-of-the-points-clicked-on-the-image-using-python-opencv/
+# function to save the coordinates of points clicked on the image as imagepoints.
+# only allows left clicks now, can also add rightclicks if necessary.
+
+def click_event(event, x, y, flags, param):
+    if event == cv.EVENT_LBUTTONDOWN:
+
+        # displaying the coordinates on the image
+        print(f"Clicked coordinates: ({x}, {y})")
+        cv.circle(img, (x, y), 3, (0, 255, 0), -1)
+        cv.imshow('img', img)
+
+        # saving the corner points as image points and appending the corresponding object point.
+        imgpoints.append((x, y))
+        objpoints.append(objp)
+
 # termination criteria
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
@@ -44,4 +60,12 @@ for fname in images:
         cv.drawChessboardCorners(img, (7,6), corners2, ret)
         cv.imshow('img', img)
         cv.waitKey(500)
+    else:
+        #if not found, (add objectpoints all the same?) and set cornerpoints to mouseclicks, adding them as image points.
+        objpoints.append(objp)
+        cv.imshow('img', img)
+        cv.setMouseCallback('img', click_event)
+        cv.waitKey(0)
 cv.destroyAllWindows()
+
+
