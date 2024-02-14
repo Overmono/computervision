@@ -1,4 +1,4 @@
-# Code adapted from https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html
+# Code adapted from https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html and # code adapted from: https://www.geeksforgeeks.org/displaying-the-coordinates-of-the-points-clicked-on-the-image-using-python-opencv/
 import numpy as np
 import cv2 as cv
 import glob
@@ -61,11 +61,50 @@ for fname in images:
         cv.imshow('img', img)
         cv.waitKey(500)
     else:
-        #if not found, (add objectpoints all the same?) and set cornerpoints to mouseclicks, adding them as image points.
-        objpoints.append(objp)
+        #if not found, set cornerpoints to mouseclicks, adding them as image points and object points.
         cv.imshow('img', img)
         cv.setMouseCallback('img', click_event)
         cv.waitKey(0)
 cv.destroyAllWindows()
 
 
+# Calibration
+
+#create directory to store undistorted images
+undistorted_folder = os.path.join(current_dir, "undistorted_images")
+os.makedirs(undistorted_folder, exist_ok=True)
+
+# getting the camera matrix, distortion coefficients, rotation and translation vectors
+ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+
+np.savetxt('camera_matrix.txt', mtx)
+np.savetxt('distortion_coefficients.txt', dist)
+
+# undistorting and cropping images using optimal camera matrix
+for fname in images:
+    img = cv.imread(fname)
+    h, w = img.shape[:2]
+
+    # performing optimal camera matrix calculation
+    newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+
+    # undistorting
+    dst = cv.undistort(img, mtx, dist, None, newcameramtx)
+
+    # cropping
+    x, y, w, h = roi
+    dst = dst[y:y+h, x:x+w]
+
+    # saving the images
+    output_path = os.path.join(undistorted_folder, 'undistorted_' + os.path.basename(fname))
+    cv.imwrite(output_path, dst)
+
+
+# Re-projection error
+    
+mean_error = 0
+for i in range(len(objpoints)):
+    imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+    error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2)/len(imgpoints2)
+    mean_error += error
+print( "total error: {}".format(mean_error/len(objpoints)) )
