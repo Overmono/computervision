@@ -4,7 +4,7 @@ import cv2 as cv
 import glob
 import os
 
-def find_chessboard_corners(image_folder):
+def find_chessboard_corners(image_folder, remove_bad_images=False):
     # Arrays to store object points and image points from all the images.
     objpoints = [] # 3d point in real world space
     imgpoints = [] # 2d points in image plane.
@@ -21,6 +21,10 @@ def find_chessboard_corners(image_folder):
 
     # Get the list of image files
     images = glob.glob(os.path.join(image_folder, '*.jpeg'))
+
+    # Initial calibration 
+    ret, mtx, dist, rvecs, tvecs = None, None, None, None, None
+    prev_error = float('inf')
 
     #iterate over images to find chessboard corners and add image and object points automatically if possible, otherwise manually.
     for fname in images:
@@ -40,11 +44,51 @@ def find_chessboard_corners(image_folder):
             cv.drawChessboardCorners(img, (7,6), corners2, ret)
             cv.imshow('img', img)
             cv.waitKey(500)
+
+            # If bad images need to be excluded, calculate reprojection error after addition of each image, if it increases, dont use the image.
+            if remove_bad_images:
+                # Calibrate camera with the new image
+                ret_new, mtx_new, dist_new, rvecs_new, tvecs_new = calibrate_camera(objpoints, imgpoints, gray.shape[::-1])
+
+                # Calculate reprojection error
+                error = calculate_reprojection_error(objpoints, imgpoints, rvecs_new, tvecs_new, mtx_new, dist_new)
+
+                # Check if the error increased
+                if ret_new and error >= prev_error:
+                    # Remove the last added image
+                    objpoints.pop()
+                    imgpoints.pop()
+                else:
+                    # Update calibration results
+                    ret, mtx, dist, rvecs, tvecs = ret_new, mtx_new, dist_new, rvecs_new, tvecs_new
+                    prev_error = error
+            else:
+                ret, mtx, dist, rvecs, tvecs = calibrate_camera(objpoints, imgpoints, gray.shape[::-1])
+
         else:
             #if not found, set cornerpoints to mouseclicks, adding them as image points and object points.
             cv.imshow('img', img)
             cv.setMouseCallback('img', click_event)
             cv.waitKey(0)
+
+            if remove_bad_images:
+                # Calibrate camera with the new image
+                ret_new, mtx_new, dist_new, rvecs_new, tvecs_new = calibrate_camera(objpoints, imgpoints, gray.shape[::-1])
+
+                # Calculate reprojection error
+                error = calculate_reprojection_error(objpoints, imgpoints, rvecs_new, tvecs_new, mtx_new, dist_new)
+
+                # Check if the error increased
+                if ret_new and error >= prev_error:
+                    # Remove the last added image
+                    objpoints.pop()
+                    imgpoints.pop()
+                else:
+                    # Update calibration results
+                    ret, mtx, dist, rvecs, tvecs = ret_new, mtx_new, dist_new, rvecs_new, tvecs_new
+                    prev_error = error
+            else:
+                ret, mtx, dist, rvecs, tvecs = calibrate_camera(objpoints, imgpoints, gray.shape[::-1])
     cv.destroyAllWindows()
     return objpoints, imgpoints
 
@@ -93,7 +137,7 @@ def calculate_reprojection_error(objpoints, imgpoints, rvecs, tvecs, mtx, dist):
         mean_error += error
     return mean_error / len(objpoints)
 
-def main():
+def main(remove_bad_images = False):
     # Get the current working directory
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -105,7 +149,7 @@ def main():
     os.makedirs(undistorted_folder, exist_ok=True)
 
     #get obj and img points
-    objpoints, imgpoints, gray = find_chessboard_corners(image_folder)
+    objpoints, imgpoints, gray, ret, mtx, dist, rvecs, tvecs = find_chessboard_corners(image_folder, remove_bad_images)
 
     #calibrate camera and save camera matrix and dst coefficients
     ret, mtx, dist, rvecs, tvecs = calibrate_camera(objpoints, imgpoints, gray.shape[::-1])
@@ -121,4 +165,4 @@ def main():
 
     
 if __name__ == "__main__":
-    main()
+    main(remove_bad_images=False)
