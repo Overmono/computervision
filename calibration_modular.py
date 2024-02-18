@@ -178,7 +178,7 @@ def main(remove_bad_images = False):
     os.makedirs(undistorted_folder, exist_ok=True)
 
     #get obj and img points
-    objpoints, imgpoints, gray, ret, mtx, dst, rvecs, tvecs = find_chessboard_corners(image_folder, remove_bad_images)
+    objpoints, imgpoints = find_chessboard_corners(image_folder, remove_bad_images)
 
     #calibrate camera and save camera matrix and dst coefficients
     ret, mtx, dst, rvecs, tvecs = calibrate_camera(objpoints, imgpoints, gray.shape[::-1])
